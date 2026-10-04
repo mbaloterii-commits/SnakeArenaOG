@@ -7,6 +7,7 @@ import { SnakeGame } from "@/components/SnakeGame";
 import { Ranking } from "@/components/Ranking";
 import { AdminPanel } from "@/components/AdminPanel";
 import { PointExchange } from "@/components/PointExchange";
+import { BuyGames } from "@/components/BuyGames";
 import { AmbientSnakes, SnakeInsignia } from "@/components/AmbientSnakes";
 import { Button } from "@/components/ui/button";
 import { Toaster, toast } from "sonner";
@@ -75,7 +76,7 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-type Tab = "game" | "shop" | "info" | "admin";
+type Tab = "game" | "buy_games" | "shop" | "info" | "admin";
 
 function Index() {
   const { player, isAdmin, ready, refresh, user } = useAuth();
@@ -201,6 +202,13 @@ function Index() {
               {user ? "🐍 Gra" : isGuest ? "🐍 Gra (Demo)" : "🔑 Logowanie / Gra"}
             </Button>
             <Button
+              variant={tab === "buy_games" ? "default" : "chip"}
+              className="flex-1 min-w-[110px] border border-accent/50 text-accent hover:bg-accent/20 font-semibold"
+              onClick={() => setTab("buy_games")}
+            >
+              ⚡ Kup gry
+            </Button>
+            <Button
               variant={tab === "shop" ? "default" : "chip"}
               className="flex-1 min-w-[130px] border border-primary/40 text-primary hover:bg-primary/20"
               onClick={() => setTab("shop")}
@@ -235,6 +243,15 @@ function Index() {
 
         {!mounted || !ready ? (
           <p className="text-center text-muted-foreground">Ładowanie…</p>
+        ) : tab === "buy_games" ? (
+          <BuyGames
+            player={player || demoPlayer}
+            isDemo={isGuest || !user}
+            onBackToGame={() => setTab("game")}
+            backLabel={
+              user ? "Wróć do gry" : isGuest ? "Wróć do gry (Demo)" : "Wróć do menu logowania"
+            }
+          />
         ) : tab === "shop" ? (
           <PointExchange
             player={player || demoPlayer}

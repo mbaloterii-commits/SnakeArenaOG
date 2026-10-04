@@ -19,53 +19,56 @@ const PRODUCTS: Product[] = [
   {
     id: "psc-20",
     name: "Karta Paysafecard 20 PLN",
-    cost: 200,
+    cost: 400,
     icon: "💳",
     badge: "Główna nagroda",
     popular: true,
     description: "Kod Paysafecard o wartości 20 zł do wykorzystania w grach i płatnościach online.",
-    telegramMsg: "Kupilem psc 20 zl za 200 punktow",
+    telegramMsg: "Kupilem psc 20 zl za 400 punktow",
   },
   {
     id: "extra-life",
     name: "Dodatkowe Życie w Grze (❤️ +1)",
-    cost: 50,
+    cost: 100,
     icon: "❤️",
     description: "Jednorazowy ratunek po zderzeniu ze ścianą lub ogonem w kolejnej grze.",
-    telegramMsg: "Kupilem dodatkowe zycie za 50 punktow",
+    telegramMsg: "Kupilem dodatkowe zycie za 100 punktow",
   },
   {
     id: "extra-game",
     name: "Dodatkowa Gra w Arenie (🎮 +1)",
-    cost: 80,
+    cost: 160,
     icon: "🎮",
     description: "Zagraj natychmiast jeszcze raz bez konieczności czekania pełnych 24 godzin.",
-    telegramMsg: "Kupilem dodatkowa gre za 80 punktow",
+    telegramMsg: "Kupilem dodatkowa gre za 160 punktow",
   },
   {
     id: "vip-skin",
     name: "Złoty Wąż & Ranga VIP",
-    cost: 150,
+    cost: 300,
     icon: "👑",
     description: "Złoty kolor węża oraz specjalne oznaczenie VIP w rankingu graczy.",
-    telegramMsg: "Kupilem range VIP za 150 punktow",
+    telegramMsg: "Kupilem range VIP za 300 punktow",
   },
   {
-    id: "steam-allegro-25",
-    name: "Karta Steam / Allegro 25 PLN",
-    cost: 250,
-    icon: "🎁",
-    description: "Karta podarunkowa 25 zł do wyboru: portfel Steam lub Allegro.",
-    telegramMsg: "Kupilem karte podarunkowa 25 zl za 250 punktow",
+    id: "psc-100",
+    name: "Karta Paysafecard 100 PLN",
+    cost: 1800,
+    icon: "💎",
+    badge: "Mega nagroda",
+    popular: true,
+    description:
+      "Kod Paysafecard o wartości 100 zł do wykorzystania w grach i płatnościach online.",
+    telegramMsg: "Kupilem psc 100 zl za 1800 punktow",
   },
   {
     id: "psc-50",
     name: "Karta Paysafecard 50 PLN",
-    cost: 450,
+    cost: 900,
     icon: "💰",
     badge: "Super nagroda",
     description: "Kod Paysafecard o wartości 50 zł na dowolne zakupy w sieci.",
-    telegramMsg: "Kupilem psc 50 zl za 450 punktow",
+    telegramMsg: "Kupilem psc 50 zl za 900 punktow",
   },
 ];
 
@@ -235,12 +238,12 @@ export function PointExchange({
         <ol className="list-decimal list-inside space-y-1">
           <li>Zbieraj punkty grając codziennie w Snake Arena.</li>
           <li>
-            Gdy uzbierasz wymaganą liczbę (np. <b>200 punktów</b> na Paysafecard 20 PLN), kliknij{" "}
-            <b>Odbierz nagrodę</b>.
+            Gdy uzbierasz wymaganą liczbę (np. <b>400 punktów</b> na Paysafecard 20 PLN lub{" "}
+            <b>1800 punktów</b> na Paysafecard 100 PLN), kliknij <b>Odbierz nagrodę</b>.
           </li>
           <li>
             Automatycznie otworzy się czat Telegram z administratorem (<b>@SnakeArenaAdmin</b>) z
-            gotową treścią wiadomości: <i>„Kupilem psc 20 zl za 200 punktow”</i>.
+            gotową treścią wiadomości: <i>„Kupilem psc 20 zl za 400 punktow”</i>.
           </li>
           <li>Administrator weryfikuje Twoje punkty w rankingu i przekazuje kod nagrody.</li>
         </ol>

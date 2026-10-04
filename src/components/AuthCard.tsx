@@ -197,9 +197,7 @@ export function AuthCard({ onPlayAsGuest }: { onPlayAsGuest?: () => void }) {
 
       <div className="space-y-1">
         <Input
-          placeholder={
-            mode === "signup" ? "Wymyśl swój nick (np. SnakeMaster)" : "Twój nick"
-          }
+          placeholder={mode === "signup" ? "Wymyśl swój nick (np. SnakeMaster)" : "Twój nick"}
           value={nick}
           onChange={(e) => setNick(e.target.value)}
           maxLength={mode === "signup" ? 20 : 60}
