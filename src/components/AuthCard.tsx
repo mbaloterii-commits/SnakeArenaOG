@@ -47,7 +47,7 @@ export function AuthCard({ onPlayAsGuest }: { onPlayAsGuest?: () => void }) {
             throw new Error("Ten adres e-mail jest już zarejestrowany. Zaloguj się.");
           }
           if (error.message.toLowerCase().includes("rate limit") || error.message.toLowerCase().includes("rate_limit")) {
-            throw new Error("Supabase zablokował wysyłkę e-maili z powodu limitu (max 3 maile/godz.). W panelu Supabase (Authentication -> Providers -> Email) odznacz 'Confirm email', aby rejestrować się natychmiast bez oczekiwania na maila!");
+            throw new Error("Chwilowy limit prób. Spróbuj ponownie za chwilę.");
           }
           throw error;
         }
