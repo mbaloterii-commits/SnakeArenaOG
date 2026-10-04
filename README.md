@@ -1,11 +1,24 @@
-<div align="center">
+# Game Point Master
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+stworz mi poprawiona aplikacje na ten wzor ktora wyglada wizualnie lepiej i w panelu administratora moge sobie dodawac zycia i kolejne gry usun ze gracz dostaje na start 100 pktow tylko jedna gra co 24h i zrob baze danych zeby to mozna bylo podpiac pod @connector:telegram:"Telegram" i zebym widziala co kto i ile gra i zeby administrator mogl dodawac punkty z panelu administracyjnego i gry dla graczy kliknieciem jednym i zabierac obok nicki kazdego zeby tak bylo i wyszukiwarka do nickow i napraw to ze przy zmianie nicku mozna sobie grac ciagle na nowych nickach
 
-  <h1>Built with AI Studio</h2>
+This project was built with [Lovable](https://lovable.dev).
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+## Build with Lovable
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+Continue developing this project in the [Lovable editor](https://lovable.dev/projects/f7843592-da9a-4d39-948e-0c7f4fec5f89).
 
-</div>
+- **Ship faster**: describe what you want to build and Lovable handles the code.
+- **Stay in sync**: every change made in Lovable is committed straight to this repository.
+- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
+
+## Development
+
+Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+
+```sh
+git clone <this-repository-url>
+cd <repository-name>
+npm i
+npm run dev
+```

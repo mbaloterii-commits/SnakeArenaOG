@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="100%" height="100%">
+  <defs>
+    <filter id="neon-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="6" result="blur1" />
+      <feGaussianBlur stdDeviation="14" result="blur2" />
+      <feMerge>
+        <feMergeNode in="blur2" />
+        <feMergeNode in="blur1" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+    <linearGradient id="cyber-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#05130b" />
+      <stop offset="50%" stop-color="#0a1a10" />
+      <stop offset="100%" stop-color="#020805" />
+    </linearGradient>
+    <linearGradient id="snake-body" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4ade80" />
+      <stop offset="50%" stop-color="#22c55e" />
+      <stop offset="100%" stop-color="#15803d" />
+    </linearGradient>
+    <linearGradient id="snake-head" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#86efac" />
+      <stop offset="70%" stop-color="#22c55e" />
+      <stop offset="100%" stop-color="#166534" />
+    </linearGradient>
+  </defs>
+
+  <!-- Tło: Zaokrąglony ciemny kafelek z neonową ramką -->
+  <rect x="12" y="12" width="232" height="232" rx="54" fill="url(#cyber-bg)" stroke="#22c55e" stroke-width="6" stroke-opacity="0.9" />
+
+  <!-- Subtelna siatka cyber w tle -->
+  <path d="M12 70 H244 M12 128 H244 M12 186 H244 M70 12 V244 M128 12 V244 M186 12 V244" stroke="#22c55e" stroke-width="1.5" stroke-opacity="0.12" />
+
+  <!-- Ciało węża wijące się w neonowym stylu -->
+  <g filter="url(#neon-glow)">
+    <!-- Ogon i tułów węża (kręte segmenty) -->
+    <path
+      d="M 68 190
+         C 46 174, 44 140, 72 124
+         C 100 108, 126 126, 154 112
+         C 176 100, 180 72, 156 56
+         C 134 42, 102 52, 102 76"
+      fill="none"
+      stroke="url(#snake-body)"
+      stroke-width="26"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+
+    <!-- Wewnętrzne świecące linie grzbietu węża -->
+    <path
+      d="M 68 190
+         C 46 174, 44 140, 72 124
+         C 100 108, 126 126, 154 112
+         C 176 100, 180 72, 156 56
+         C 134 42, 102 52, 102 76"
+      fill="none"
+      stroke="#86efac"
+      stroke-width="7"
+      stroke-linecap="round"
+      stroke-dasharray="14 12"
+      stroke-opacity="0.9"
+    />
+
+    <!-- Język węża wysunięty z pyska -->
+    <path
+      d="M 186 150 L 222 174 M 222 174 L 236 170 M 222 174 L 234 186"
+      fill="none"
+      stroke="#ef4444"
+      stroke-width="5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+
+    <!-- Głowa węża (geometryczna cyber-żmija) -->
+    <path
+      d="M 122 110
+         L 188 142
+         L 182 164
+         L 136 156
+         L 110 134
+         Z"
+      fill="url(#snake-head)"
+      stroke="#86efac"
+      stroke-width="4"
+      stroke-linejoin="round"
+    />
+
+    <!-- Pysk / dolna szczęka -->
+    <path
+      d="M 136 156 L 168 162 L 152 174 L 126 164 Z"
+      fill="#15803d"
+      stroke="#22c55e"
+      stroke-width="3"
+    />
+
+    <!-- Kły węża -->
+    <polygon points="172,156 166,168 163,156" fill="#ffffff" />
+
+    <!-- Oko węża: żółto-limonkowe, świecące jak laser -->
+    <ellipse cx="152" cy="132" rx="7" ry="5" fill="#facc15" transform="rotate(-15 152 132)" />
+    <!-- Źrenica - drapieżna pionowa szczelina -->
+    <path d="M 152 127 L 153 137" stroke="#05130b" stroke-width="2.5" stroke-linecap="round" />
+    <circle cx="153" cy="130" r="1.5" fill="#ffffff" />
+  </g>
+</svg>

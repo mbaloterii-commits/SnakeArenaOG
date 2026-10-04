@@ -1,0 +1,5 @@
+{
+  "name": "Snake Arena",
+  "description": "Neonowy Snake z rankingiem, jedną grą na 24h i dodatkowymi życiami.",
+  "capabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

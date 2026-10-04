@@ -1,0 +1,151 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-display: "Bungee", system-ui, sans-serif;
+  --font-sans: "Outfit", system-ui, sans-serif;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-gold: var(--gold);
+  --color-heart: var(--heart);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+:root {
+  --radius: 1rem;
+  --background: oklch(0.16 0.03 165);
+  --foreground: oklch(0.96 0.02 150);
+  --card: oklch(0.21 0.035 165);
+  --card-foreground: oklch(0.96 0.02 150);
+  --popover: oklch(0.21 0.035 165);
+  --popover-foreground: oklch(0.96 0.02 150);
+  --primary: oklch(0.86 0.2 150);
+  --primary-foreground: oklch(0.18 0.05 160);
+  --secondary: oklch(0.27 0.04 165);
+  --secondary-foreground: oklch(0.94 0.02 150);
+  --muted: oklch(0.25 0.03 165);
+  --muted-foreground: oklch(0.7 0.04 160);
+  --accent: oklch(0.85 0.17 85);
+  --accent-foreground: oklch(0.2 0.04 80);
+  --gold: oklch(0.85 0.17 85);
+  --heart: oklch(0.68 0.22 15);
+  --destructive: oklch(0.65 0.22 20);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.32 0.04 165);
+  --input: oklch(0.3 0.04 165);
+  --ring: oklch(0.86 0.2 150);
+  --glow: 0 0 24px oklch(0.86 0.2 150 / 45%);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  body {
+    background-color: var(--color-background);
+    background-image:
+      radial-gradient(ellipse at top, oklch(0.3 0.08 160 / 60%), transparent 60%),
+      radial-gradient(ellipse at bottom right, oklch(0.3 0.08 85 / 25%), transparent 50%);
+    background-attachment: fixed;
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+  }
+}
+
+@utility font-display {
+  font-family: var(--font-display);
+}
+@utility glow {
+  box-shadow: var(--glow);
+}
+@utility text-glow {
+  text-shadow: 0 0 18px oklch(0.86 0.2 150 / 60%);
+}
+@utility panel {
+  background: color-mix(in oklch, var(--card) 85%, transparent);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  backdrop-filter: blur(8px);
+}
+
+@keyframes snakeCrawl1 {
+  0% {
+    transform: translate(-150px, 0) scaleX(1);
+  }
+  48% {
+    transform: translate(calc(100vw + 120px), 120px) scaleX(1);
+  }
+  50% {
+    transform: translate(calc(100vw + 120px), 120px) scaleX(-1);
+  }
+  98% {
+    transform: translate(-150px, 0) scaleX(-1);
+  }
+  100% {
+    transform: translate(-150px, 0) scaleX(1);
+  }
+}
+
+@keyframes snakeCrawl2 {
+  0% {
+    transform: translate(150px, 0) scaleX(1);
+  }
+  48% {
+    transform: translate(calc(-100vw - 120px), 80px) scaleX(1);
+  }
+  50% {
+    transform: translate(calc(-100vw - 120px), 80px) scaleX(-1);
+  }
+  98% {
+    transform: translate(150px, 0) scaleX(-1);
+  }
+  100% {
+    transform: translate(150px, 0) scaleX(1);
+  }
+}
+
+@keyframes snakeCrawl3 {
+  0% {
+    transform: translate(-180px, 0);
+  }
+  100% {
+    transform: translate(calc(100vw + 150px), -60px);
+  }
+}
+
+@utility animate-snake-crawl-1 {
+  animation: snakeCrawl1 28s ease-in-out infinite;
+}
+
+@utility animate-snake-crawl-2 {
+  animation: snakeCrawl2 34s ease-in-out infinite 4s;
+}
+
+@utility animate-snake-crawl-3 {
+  animation: snakeCrawl3 22s linear infinite 10s;
+}
+
