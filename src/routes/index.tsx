@@ -298,8 +298,9 @@ function Index() {
               🎮 Każdy gracz ma <b>jedną grę co 24 godziny</b>. Konto startuje z 0 punktów.
             </p>
             <p>
-              🍋 Jedzenie: +1 pkt · 🪙 złoty punkt: +3 pkt · ✨ co 25 pkt boost — przeszkody
-              przestają działać na 8 s.
+              🍋 Jedzenie: +1 pkt · 🪙 złoty punkt: +3 pkt · 🎲 przeszkody losowo zmieniają
+              położenie po każdym punkcie! · ⚡ co 25 pkt Super Moc (8s pełnej niezniszczalności:
+              przenikanie przez ściany i rozbijanie przeszkód za punkty).
             </p>
             <p>
               ❤️ Życie pozwala kontynuować grę po zderzeniu. Życia i dodatkowe gry przyznaje

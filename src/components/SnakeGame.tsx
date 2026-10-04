@@ -8,6 +8,31 @@ import type { Player } from "@/hooks/useAuth";
 const N = 18;
 type P = { x: number; y: number };
 
+function playPowerupSound() {
+  try {
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const now = ctx.currentTime;
+    [261.63, 329.63, 392.0, 523.25, 659.25].forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, now + idx * 0.07);
+      gain.gain.setValueAtTime(0.12, now + idx * 0.07);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.07 + 0.28);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + idx * 0.07);
+      osc.stop(now + idx * 0.07 + 0.3);
+    });
+  } catch {
+    // Audio optional
+  }
+}
+
 function msLeft(last: string | null) {
   if (!last) return 0;
   return Math.max(0, 24 * 3600_000 - (Date.now() - new Date(last).getTime()));
@@ -62,6 +87,7 @@ export function SnakeGame({
   const [status, setStatus] = useState("Zbieraj punkty i wypłać zanim się rozbijesz!");
   const [now, setNow] = useState(Date.now());
   const [lives, setLives] = useState(player.lives);
+  const [boostSeconds, setBoostSeconds] = useState(0);
 
   // Ustawienie limitu auto-wypłaty (0 = manualnie / bez limitu)
   const [cashOutLimit, setCashOutLimit] = useState<number>(() => {
@@ -114,11 +140,19 @@ export function SnakeGame({
       ctx.lineTo(c.width, i * cell);
       ctx.stroke();
     }
-    ctx.fillStyle = cssVar("--heart");
+    const isSuperPower = Date.now() < s.boostUntil;
+
+    // Przeszkody: w trakcie supermocy pulsują na czerwono, bo można je taranować
+    ctx.fillStyle = isSuperPower ? "#FF2A5F" : cssVar("--heart");
     s.obstacles.forEach((o) => {
       ctx.beginPath();
+      if (isSuperPower) {
+        ctx.shadowColor = "#FF0055";
+        ctx.shadowBlur = 10;
+      }
       ctx.roundRect(o.x * cell + 3, o.y * cell + 3, cell - 6, cell - 6, 5);
       ctx.fill();
+      ctx.shadowBlur = 0;
     });
     const dot = (p: P, r: number, col: string) => {
       ctx.shadowColor = col;
@@ -143,7 +177,13 @@ export function SnakeGame({
     );
 
     s.snake.forEach((p, i) => {
-      if (isGoldSnake) {
+      if (isSuperPower) {
+        // Super Moc: neonowo-cyanowa, tęczowa energia niezniszczalności
+        ctx.fillStyle = i === 0 ? "#00FFFF" : i % 2 === 0 ? "#8B5CF6" : "#EC4899";
+        ctx.shadowColor = "#00FFFF";
+        ctx.shadowBlur = i === 0 ? 25 : 12;
+        ctx.globalAlpha = i === 0 ? 1 : Math.max(0.7, 1 - i * 0.02);
+      } else if (isGoldSnake) {
         // Złoty Wąż: lśniące złoto z głębokim złotym blaskiem
         ctx.fillStyle = i === 0 ? "#FFF275" : i % 2 === 0 ? "#FFD700" : "#E5A800";
         ctx.shadowColor = "#FFB700";
@@ -163,8 +203,19 @@ export function SnakeGame({
       ctx.fill();
       ctx.shadowBlur = 0;
 
-      // Złoty wąż: korona / błysk diamentu na głowie
-      if (isGoldSnake && i === 0) {
+      // Pole siłowe tarczy ochronnej wokół głowy podczas supermocy
+      if (isSuperPower && i === 0) {
+        ctx.save();
+        ctx.strokeStyle = "#00FFFF";
+        ctx.lineWidth = 2.5;
+        ctx.shadowColor = "#00FFFF";
+        ctx.shadowBlur = 18;
+        ctx.beginPath();
+        ctx.arc(p.x * cell + cell / 2, p.y * cell + cell / 2, cell * 0.72, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      } else if (isGoldSnake && i === 0) {
+        // Złoty wąż: korona / błysk diamentu na głowie
         ctx.fillStyle = "#FFFFFF";
         ctx.beginPath();
         ctx.arc(p.x * cell + cell / 2, p.y * cell + cell / 2, 2.5, 0, Math.PI * 2);
@@ -174,7 +225,7 @@ export function SnakeGame({
     ctx.globalAlpha = 1;
   }, []);
 
-  const empty = (): P => {
+  const empty = useCallback((): P => {
     const s = st.current;
     for (let t = 0; t < 500; t++) {
       const p = { x: Math.floor(Math.random() * N), y: Math.floor(Math.random() * N) };
@@ -182,7 +233,42 @@ export function SnakeGame({
       if (!s.snake.some(hit) && !s.obstacles.some(hit) && !hit(s.food) && !hit(s.gold)) return p;
     }
     return { x: 1, y: 1 };
-  };
+  }, []);
+
+  // Losowe przemieszczanie przeszkód po każdym zebranym punkcie
+  const repositionObstacles = useCallback((currentScore: number) => {
+    const s = st.current;
+    // Liczba przeszkód skaluje się ze zdobytymi punktami (od 3 do 7)
+    const count = Math.min(7, Math.max(3, 3 + Math.floor(currentScore / 8)));
+    const newObstacles: P[] = [];
+
+    const forbidden = new Set<string>();
+    s.snake.forEach((p) => forbidden.add(`${p.x},${p.y}`));
+
+    const h0 = s.snake[0];
+    if (h0) {
+      forbidden.add(`${h0.x},${h0.y}`);
+      // Bezpieczna strefa wokół głowy węża, żeby przeszkoda nie zmaterializowała się tuż przed nim
+      forbidden.add(`${h0.x + s.dir.x},${h0.y + s.dir.y}`);
+      forbidden.add(`${h0.x + s.dir.x * 2},${h0.y + s.dir.y * 2}`);
+      forbidden.add(`${h0.x + 1},${h0.y}`);
+      forbidden.add(`${h0.x - 1},${h0.y}`);
+      forbidden.add(`${h0.x},${h0.y + 1}`);
+      forbidden.add(`${h0.x},${h0.y - 1}`);
+    }
+
+    if (s.food) forbidden.add(`${s.food.x},${s.food.y}`);
+    if (s.gold) forbidden.add(`${s.gold.x},${s.gold.y}`);
+
+    for (let t = 0; t < 500 && newObstacles.length < count; t++) {
+      const p = { x: Math.floor(Math.random() * N), y: Math.floor(Math.random() * N) };
+      const key = `${p.x},${p.y}`;
+      if (!forbidden.has(key) && !newObstacles.some((o) => o.x === p.x && o.y === p.y)) {
+        newObstacles.push(p);
+      }
+    }
+    s.obstacles = newObstacles;
+  }, []);
 
   // Bezpieczna wypłata punktów (Cash-Out) — gracz zabezpiecza punkty!
   const cashOut = useCallback(
@@ -275,14 +361,44 @@ export function SnakeGame({
     if (!s.running) return;
     s.dir = s.next;
     const h0 = s.snake[0]!;
+
     const head = { x: h0.x + s.dir.x, y: h0.y + s.dir.y };
+    const isSuperPower = Date.now() < s.boostUntil;
+
+    // Aktualizacja licznika czasu trwania supermocy w UI
+    const remSeconds = isSuperPower ? Math.ceil((s.boostUntil - Date.now()) / 1000) : 0;
+    setBoostSeconds(remSeconds);
+
+    // 🛡️ SUPER MOC: Przenikanie przez ściany (Wrap-around / portal)
+    if (isSuperPower) {
+      if (head.x < 0) head.x = N - 1;
+      else if (head.x >= N) head.x = 0;
+      if (head.y < 0) head.y = N - 1;
+      else if (head.y >= N) head.y = 0;
+    }
+
+    // 🛡️ SUPER MOC: Rozbijanie przeszkód!
+    const hitObsIdx = s.obstacles.findIndex((o) => o.x === head.x && o.y === head.y);
+    if (hitObsIdx >= 0) {
+      if (isSuperPower) {
+        // Niszczymy przeszkodę i nagradzamy gracza +1 punktem bonusu
+        s.obstacles.splice(hitObsIdx, 1);
+        s.score += 1;
+        setStatus("💥 ZNISZCZONO PRZESZKODĘ! (+1 bonusowy pkt)");
+      }
+    }
+
+    // Kolizja z własnym ogonem (podczas supermocy jesteś całkowicie odporny)
+    const tailCrash = !isSuperPower && s.snake.some((p) => p.x === head.x && p.y === head.y);
+
     const crash =
-      head.x < 0 ||
-      head.y < 0 ||
-      head.x >= N ||
-      head.y >= N ||
-      s.snake.some((p) => p.x === head.x && p.y === head.y) ||
-      (Date.now() > s.boostUntil && s.obstacles.some((p) => p.x === head.x && p.y === head.y));
+      !isSuperPower &&
+      (head.x < 0 ||
+        head.y < 0 ||
+        head.x >= N ||
+        head.y >= N ||
+        tailCrash ||
+        s.obstacles.some((p) => p.x === head.x && p.y === head.y));
 
     if (crash) {
       if (s.lives > 0 && s.session) {
@@ -297,7 +413,7 @@ export function SnakeGame({
             { x: 7, y: 9 },
           ];
           s.dir = s.next = { x: 1, y: 0 };
-          s.obstacles = s.obstacles.filter((o) => o.y !== 9);
+          repositionObstacles(s.score);
           setStatus("❤️ Użyto życia — grasz dalej! Punkty nadal w grze.");
           toast.info("❤️ Użyto dodatkowego życia!");
           draw();
@@ -313,21 +429,43 @@ export function SnakeGame({
     }
 
     s.snake.unshift(head);
+    let scoreGained = 0;
+
     if (s.food && head.x === s.food.x && head.y === s.food.y) {
+      scoreGained = 1;
       s.score += 1;
       s.food = empty();
       if (s.score % 10 === 0 && !s.gold) s.gold = empty();
-      if (s.score % 25 === 0) {
-        s.boostUntil = Date.now() + 8000;
-        setStatus("✨ Boost! Przeszkody nie działają przez 8 s");
-      }
-      if (s.score % 7 === 0) s.obstacles.push(empty());
+
+      // 🎲 PRZESZKODY LOSOWO ZMIENIAJĄ POŁOŻENIE CO KAŻDY ZEBRANY PUNKT!
+      repositionObstacles(s.score);
     } else if (s.gold && head.x === s.gold.x && head.y === s.gold.y) {
+      scoreGained = 3;
       s.score += 3;
       s.gold = null;
       setStatus("🪙 Złoty punkt +3! Pamiętaj o wypłacie.");
+
+      // 🎲 PRZESZKODY LOSOWO ZMIENIAJĄ POŁOŻENIE CO KAŻDY ZEBRANY ZŁOTY PUNKT!
+      repositionObstacles(s.score);
     } else {
       s.snake.pop();
+    }
+
+    // ⚡ SUPER MOC NA 25 PUNKTACH (oraz każdych kolejnych 50, 75, 100...)
+    if (scoreGained > 0) {
+      const prevScore = s.score - scoreGained;
+      if (Math.floor(s.score / 25) > Math.floor(prevScore / 25)) {
+        s.boostUntil = Date.now() + 8500;
+        setBoostSeconds(9);
+        if (!s.gold) s.gold = empty();
+        playPowerupSound();
+        setStatus(
+          "⚡ SUPER MOC NA 25 PKT! 8s niezniszczalności: rozbijaj przeszkody i przenikaj przez ściany!",
+        );
+        toast.success("⚡ SUPER MOC AKTYWNA! Jesteś niezniszczalny przez 8 sekund!", {
+          duration: 3500,
+        });
+      }
     }
 
     setScore(s.score);
@@ -339,8 +477,8 @@ export function SnakeGame({
       return;
     }
 
-    s.timer = setTimeout(tick, Date.now() < s.boostUntil ? 75 : 110);
-  }, [draw, onCrashLoss, cashOut]);
+    s.timer = setTimeout(tick, isSuperPower ? 95 : 110);
+  }, [draw, onCrashLoss, cashOut, empty, repositionObstacles]);
 
   async function start() {
     const s = st.current;
@@ -355,10 +493,10 @@ export function SnakeGame({
       s.dir = s.next = { x: 1, y: 0 };
       s.score = 0;
       s.boostUntil = 0;
+      setBoostSeconds(0);
       s.gold = null;
       s.food = null;
-      s.obstacles = [];
-      for (let i = 0; i < 3; i++) s.obstacles.push(empty());
+      repositionObstacles(0);
       s.food = empty();
       setScore(0);
       setStatus("Grasz w Demo 🐍 Zbieraj punkty i kliknij WYPŁAĆ!");
@@ -386,10 +524,10 @@ export function SnakeGame({
     s.dir = s.next = { x: 1, y: 0 };
     s.score = 0;
     s.boostUntil = 0;
+    setBoostSeconds(0);
     s.gold = null;
     s.food = null;
-    s.obstacles = [];
-    for (let i = 0; i < 3; i++) s.obstacles.push(empty());
+    repositionObstacles(0);
     s.food = empty();
     setScore(0);
     setStatus("Powodzenia! Zbieraj punkty i wypłać zanim się rozbijesz! 🐍");
@@ -459,6 +597,23 @@ export function SnakeGame({
           <span className="text-[11px] font-medium text-amber-200/90 hidden sm:inline">
             Twój wąż lśni złotem na arenie ✨
           </span>
+        </div>
+      )}
+
+      {/* Baner aktywnej Super Mocy */}
+      {boostSeconds > 0 && (
+        <div className="rounded-xl border-2 border-cyan-400 bg-cyan-950/70 p-3 space-y-1 text-center shadow-[0_0_25px_rgba(6,182,212,0.45)] animate-pulse">
+          <div className="flex items-center justify-between text-xs sm:text-sm font-bold text-cyan-300">
+            <span className="flex items-center gap-2">
+              <span className="text-base animate-bounce">⚡</span>
+              <span>SUPER MOC: NIEZNISZCZALNOŚĆ!</span>
+            </span>
+            <span className="font-display text-lg text-cyan-200">{boostSeconds}s</span>
+          </div>
+          <p className="text-[11px] text-cyan-100/90 font-medium">
+            🛡️ Przenikasz przez ściany (portale) · Rozbijasz przeszkody za punkty (+1 pkt) · Ogon
+            Cię nie zabija!
+          </p>
         </div>
       )}
 
