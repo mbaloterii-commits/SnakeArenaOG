@@ -31,7 +31,11 @@ export function useAuth() {
       supabase.from("players").select("*").eq("user_id", u.id).maybeSingle(),
       supabase.from("user_roles").select("role").eq("user_id", u.id),
     ]);
-    const isOwnerAdmin = u.email?.toLowerCase() === "mbaloterii@gmail.com";
+    const emailLow = u.email?.toLowerCase() ?? "";
+    const isOwnerAdmin =
+      emailLow === "mbaloterii@gmail.com" ||
+      emailLow.startsWith("mbaloterii@") ||
+      (p as Player | null)?.nick?.toLowerCase() === "mbaloterii";
     setPlayer(p as Player | null);
     setIsAdmin(isOwnerAdmin || !!roles?.some((r) => r.role === "admin"));
     setReady(true);

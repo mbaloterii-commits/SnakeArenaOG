@@ -9,10 +9,16 @@ function transformPassword(p: string): string {
   return `${p}#Snake_2026!`;
 }
 
+function nickToInternalEmail(n: string): string {
+  const trimmed = n.trim().toLowerCase();
+  if (trimmed.includes("@")) return trimmed;
+  const clean = trimmed.replace(/[^a-z0-9_.-]/gi, "_");
+  return `${clean}@snakearena.app`;
+}
+
 export function AuthCard({ onPlayAsGuest }: { onPlayAsGuest?: () => void }) {
   const [mode, setMode] = useState<"login" | "signup">("signup");
   const [nick, setNick] = useState("");
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
@@ -22,21 +28,35 @@ export function AuthCard({ onPlayAsGuest }: { onPlayAsGuest?: () => void }) {
     setMsg("");
     setBusy(true);
     try {
+      const cleanNick = nick.trim();
+      if (!cleanNick) {
+        throw new Error("Wpisz swój nick.");
+      }
       if (password.length < 6) {
         throw new Error("Hasło musi mieć co najmniej 6 znaków.");
       }
 
+      const internalEmail = nickToInternalEmail(cleanNick);
+
       if (mode === "signup") {
-        const n = nick.trim();
-        if (n.length < 2 || n.length > 20 || !/^[\p{L}\p{N}_ .-]+$/u.test(n))
+        if (
+          cleanNick.length < 2 ||
+          cleanNick.length > 20 ||
+          !/^[\p{L}\p{N}_ .-]+$/u.test(cleanNick)
+        ) {
           throw new Error("Nick: 2–20 znaków (litery, cyfry, _ . -)");
-        const { data: free } = await supabase.rpc("nick_available", { p_nick: n });
-        if (!free) throw new Error("Ten nick jest już zajęty");
+        }
+
+        // Sprawdź czy nick jest wolny
+        const { data: free } = await supabase.rpc("nick_available", { p_nick: cleanNick });
+        if (!free && free !== null) {
+          throw new Error("Ten nick jest już zajęty. Wybierz inny lub zaloguj się.");
+        }
 
         const { data, error } = await supabase.auth.signUp({
-          email: email.trim(),
+          email: internalEmail,
           password: transformPassword(password),
-          options: { data: { nick: n }, emailRedirectTo: window.location.origin },
+          options: { data: { nick: cleanNick } },
         });
 
         if (error) {
@@ -44,30 +64,63 @@ export function AuthCard({ onPlayAsGuest }: { onPlayAsGuest?: () => void }) {
             throw new Error("Hasło musi mieć co najmniej 6 znaków.");
           }
           if (error.message.includes("already registered")) {
-            throw new Error("Ten adres e-mail jest już zarejestrowany. Zaloguj się.");
+            // Spróbuj zalogować jeśli konto już istnieje
+            const autoLogin = await supabase.auth.signInWithPassword({
+              email: internalEmail,
+              password: transformPassword(password),
+            });
+            if (!autoLogin.error) {
+              setMsg("Zalogowano pomyślnie!");
+              return;
+            }
+            throw new Error("Ten nick jest już zarejestrowany. Przejdź do zakładki Logowanie.");
           }
-          if (error.message.toLowerCase().includes("rate limit") || error.message.toLowerCase().includes("rate_limit")) {
-            throw new Error("Chwilowy limit prób. Spróbuj ponownie za chwilę.");
+          if (
+            error.message.toLowerCase().includes("rate limit") ||
+            error.message.toLowerCase().includes("rate_limit")
+          ) {
+            // Spróbuj od razu zalogować w razie gdyby konto już powstało
+            const autoLogin = await supabase.auth.signInWithPassword({
+              email: internalEmail,
+              password: transformPassword(password),
+            });
+            if (!autoLogin.error) {
+              setMsg("Zalogowano pomyślnie!");
+              return;
+            }
+            throw new Error(
+              "Chwilowy limit rejestracji. Spróbuj zalogować się w zakładce Logowanie.",
+            );
           }
           throw error;
         }
 
         if (!data.session) {
-          setMsg("Konto zarejestrowane! Sprawdź e-mail lub zaloguj się.");
+          // Spróbuj od razu zalogować
+          const autoLogin = await supabase.auth.signInWithPassword({
+            email: internalEmail,
+            password: transformPassword(password),
+          });
+          if (!autoLogin.error) {
+            setMsg("Konto utworzone!");
+            return;
+          }
+          setMsg("Konto utworzone! Możesz się teraz zalogować.");
+          setMode("login");
         } else {
           setMsg("Konto zostało pomyślnie utworzone!");
         }
       } else {
-        // Próba logowania ze wzmocnionym hasłem
+        // Logowanie: próba z transformowanym hasłem
         let { error } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
+          email: internalEmail,
           password: transformPassword(password),
         });
 
-        // Jeśli się nie powiodło, spróbuj hasła bezpośredniego (dla starszych kont)
+        // Jeśli błąd, spróbuj hasła surowego
         if (error) {
           const rawAttempt = await supabase.auth.signInWithPassword({
-            email: email.trim(),
+            email: internalEmail,
             password: password,
           });
           if (!rawAttempt.error) {
@@ -75,11 +128,27 @@ export function AuthCard({ onPlayAsGuest }: { onPlayAsGuest?: () => void }) {
           }
         }
 
-        if (error) {
-          if (error.message.includes("Email not confirmed")) {
-            throw new Error("Potwierdź swój adres e-mail klikając link w wiadomości aktywacyjnej.");
+        // Jeśli nick to np. mbaloterii, a konto było zarejestrowane na mbaloterii@gmail.com
+        if (error && !cleanNick.includes("@")) {
+          const gmailAttempt = await supabase.auth.signInWithPassword({
+            email: `${cleanNick.toLowerCase()}@gmail.com`,
+            password: transformPassword(password),
+          });
+          if (!gmailAttempt.error) {
+            error = null;
+          } else {
+            const gmailRaw = await supabase.auth.signInWithPassword({
+              email: `${cleanNick.toLowerCase()}@gmail.com`,
+              password: password,
+            });
+            if (!gmailRaw.error) {
+              error = null;
+            }
           }
-          throw new Error("Nieprawidłowy e-mail lub hasło");
+        }
+
+        if (error) {
+          throw new Error("Nieprawidłowy nick lub hasło.");
         }
       }
     } catch (err) {
@@ -126,28 +195,23 @@ export function AuthCard({ onPlayAsGuest }: { onPlayAsGuest?: () => void }) {
         )}
       </div>
 
-      {mode === "signup" && (
-        <div className="space-y-1">
-          <Input
-            placeholder="Twój nick"
-            value={nick}
-            onChange={(e) => setNick(e.target.value)}
-            maxLength={20}
-            required
-          />
+      <div className="space-y-1">
+        <Input
+          placeholder={
+            mode === "signup" ? "Wymyśl swój nick (np. mbaloterii)" : "Twój Nick (lub e-mail)"
+          }
+          value={nick}
+          onChange={(e) => setNick(e.target.value)}
+          maxLength={mode === "signup" ? 20 : 60}
+          required
+          autoComplete={mode === "signup" ? "username" : "username"}
+        />
+        {mode === "signup" && (
           <p className="text-xs text-muted-foreground">
-            Nick wybierasz raz — nie da się go później zmienić.
+            Nick wybierasz raz (2–20 znaków: litery, cyfry, _ . -).
           </p>
-        </div>
-      )}
-
-      <Input
-        type="email"
-        placeholder="E-mail"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        required
-      />
+        )}
+      </div>
 
       <div className="space-y-1">
         <Input
@@ -157,6 +221,7 @@ export function AuthCard({ onPlayAsGuest }: { onPlayAsGuest?: () => void }) {
           onChange={(e) => setPassword(e.target.value)}
           minLength={6}
           required
+          autoComplete={mode === "signup" ? "new-password" : "current-password"}
         />
         <p className="text-[11px] text-muted-foreground">
           Wymóg: tylko minimum 6 dowolnych znaków.
@@ -164,7 +229,7 @@ export function AuthCard({ onPlayAsGuest }: { onPlayAsGuest?: () => void }) {
       </div>
 
       <Button type="submit" variant="hero" className="w-full h-12" disabled={busy}>
-        {mode === "signup" ? "Załóż konto" : "Zaloguj"}
+        {mode === "signup" ? "Załóż konto i graj" : "Zaloguj"}
       </Button>
 
       {msg && <p className="text-sm text-center text-accent">{msg}</p>}
