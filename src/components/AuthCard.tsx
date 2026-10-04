@@ -16,8 +16,40 @@ function nickToInternalEmail(n: string): string {
   return `${clean}@snakearena.app`;
 }
 
+async function attemptUniversalSignIn(identifier: string, rawPassword: string) {
+  const clean = identifier.trim();
+  const internal = nickToInternalEmail(clean);
+  const transformed = transformPassword(rawPassword);
+
+  const candidates: Array<{ email: string; pass: string }> = [
+    { email: internal, pass: transformed },
+    { email: internal, pass: rawPassword },
+  ];
+
+  if (!clean.includes("@")) {
+    candidates.push({ email: `${clean.toLowerCase()}@gmail.com`, pass: transformed });
+    candidates.push({ email: `${clean.toLowerCase()}@gmail.com`, pass: rawPassword });
+  } else {
+    candidates.push({ email: clean.toLowerCase(), pass: transformed });
+    candidates.push({ email: clean.toLowerCase(), pass: rawPassword });
+  }
+
+  for (const { email, pass } of candidates) {
+    try {
+      const res = await supabase.auth.signInWithPassword({ email, password: pass });
+      if (!res.error && res.data?.session) {
+        return { success: true, data: res.data };
+      }
+    } catch {
+      // kontynuuj z kolejnym kandydatem
+    }
+  }
+
+  return { success: false };
+}
+
 export function AuthCard({ onPlayAsGuest }: { onPlayAsGuest?: () => void }) {
-  const [mode, setMode] = useState<"login" | "signup">("signup");
+  const [mode, setMode] = useState<"login" | "signup">("login");
   const [nick, setNick] = useState("");
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
@@ -38,118 +70,83 @@ export function AuthCard({ onPlayAsGuest }: { onPlayAsGuest?: () => void }) {
 
       const internalEmail = nickToInternalEmail(cleanNick);
 
-      if (mode === "signup") {
-        if (
-          cleanNick.length < 2 ||
-          cleanNick.length > 20 ||
-          !/^[\p{L}\p{N}_ .-]+$/u.test(cleanNick)
-        ) {
-          throw new Error("Nick: 2–20 znaków (litery, cyfry, _ . -)");
+      if (mode === "login") {
+        const loginRes = await attemptUniversalSignIn(cleanNick, password);
+        if (loginRes.success) {
+          setMsg("Zalogowano pomyślnie!");
+          return;
         }
+        throw new Error(
+          "Nieprawidłowy nick lub hasło. Jeśli jeszcze nie masz konta, przejdź do zakładki Nowe konto.",
+        );
+      }
 
-        // Sprawdź czy nick jest wolny
-        const { data: free } = await supabase.rpc("nick_available", { p_nick: cleanNick });
-        if (!free && free !== null) {
-          throw new Error("Ten nick jest już zajęty. Wybierz inny lub zaloguj się.");
+      // Rejestracja nowego konta
+      if (
+        cleanNick.length < 2 ||
+        cleanNick.length > 20 ||
+        !/^[\p{L}\p{N}_ .-]+$/u.test(cleanNick)
+      ) {
+        throw new Error("Nick: 2–20 znaków (litery, cyfry, _ . -)");
+      }
+
+      // Sprawdź czy to konto już istnieje i hasło pasuje
+      const existingLogin = await attemptUniversalSignIn(cleanNick, password);
+      if (existingLogin.success) {
+        setMsg("To konto już istnieje — zalogowano pomyślnie!");
+        return;
+      }
+
+      // Sprawdź czy nick jest wolny
+      const { data: free } = await supabase.rpc("nick_available", { p_nick: cleanNick });
+      if (!free && free !== null) {
+        throw new Error("Ten nick jest już zajęty. Wybierz inny lub zaloguj się.");
+      }
+
+      const { data, error } = await supabase.auth.signUp({
+        email: internalEmail,
+        password: transformPassword(password),
+        options: { data: { nick: cleanNick } },
+      });
+
+      if (error) {
+        if (error.message.includes("weak_password") || error.message.includes("weak")) {
+          throw new Error("Hasło musi mieć co najmniej 6 znaków.");
         }
-
-        const { data, error } = await supabase.auth.signUp({
-          email: internalEmail,
-          password: transformPassword(password),
-          options: { data: { nick: cleanNick } },
-        });
-
-        if (error) {
-          if (error.message.includes("weak_password") || error.message.includes("weak")) {
-            throw new Error("Hasło musi mieć co najmniej 6 znaków.");
-          }
-          if (error.message.includes("already registered")) {
-            // Spróbuj zalogować jeśli konto już istnieje
-            const autoLogin = await supabase.auth.signInWithPassword({
-              email: internalEmail,
-              password: transformPassword(password),
-            });
-            if (!autoLogin.error) {
-              setMsg("Zalogowano pomyślnie!");
-              return;
-            }
-            throw new Error("Ten nick jest już zarejestrowany. Przejdź do zakładki Logowanie.");
-          }
-          if (
-            error.message.toLowerCase().includes("rate limit") ||
-            error.message.toLowerCase().includes("rate_limit")
-          ) {
-            // Spróbuj od razu zalogować w razie gdyby konto już powstało
-            const autoLogin = await supabase.auth.signInWithPassword({
-              email: internalEmail,
-              password: transformPassword(password),
-            });
-            if (!autoLogin.error) {
-              setMsg("Zalogowano pomyślnie!");
-              return;
-            }
-            throw new Error(
-              "Chwilowy limit rejestracji. Spróbuj zalogować się w zakładce Logowanie.",
-            );
-          }
-          throw error;
-        }
-
-        if (!data.session) {
-          // Spróbuj od razu zalogować
-          const autoLogin = await supabase.auth.signInWithPassword({
-            email: internalEmail,
-            password: transformPassword(password),
-          });
-          if (!autoLogin.error) {
-            setMsg("Konto utworzone!");
+        if (error.message.includes("already registered")) {
+          const auto = await attemptUniversalSignIn(cleanNick, password);
+          if (auto.success) {
+            setMsg("Zalogowano pomyślnie!");
             return;
           }
-          setMsg("Konto utworzone! Możesz się teraz zalogować.");
-          setMode("login");
-        } else {
-          setMsg("Konto zostało pomyślnie utworzone!");
+          throw new Error("Ten nick jest już zarejestrowany. Przejdź do zakładki Logowanie.");
         }
+        if (
+          error.message.toLowerCase().includes("rate limit") ||
+          error.message.toLowerCase().includes("rate_limit")
+        ) {
+          const auto = await attemptUniversalSignIn(cleanNick, password);
+          if (auto.success) {
+            setMsg("Zalogowano pomyślnie!");
+            return;
+          }
+          throw new Error(
+            "Chwilowy limit rejestracji nowych kont w bazie. Jeśli masz już konto, przejdź do zakładki Logowanie.",
+          );
+        }
+        throw error;
+      }
+
+      if (!data.session) {
+        const auto = await attemptUniversalSignIn(cleanNick, password);
+        if (auto.success) {
+          setMsg("Konto utworzone!");
+          return;
+        }
+        setMsg("Konto utworzone! Możesz się teraz zalogować.");
+        setMode("login");
       } else {
-        // Logowanie: próba z transformowanym hasłem
-        let { error } = await supabase.auth.signInWithPassword({
-          email: internalEmail,
-          password: transformPassword(password),
-        });
-
-        // Jeśli błąd, spróbuj hasła surowego
-        if (error) {
-          const rawAttempt = await supabase.auth.signInWithPassword({
-            email: internalEmail,
-            password: password,
-          });
-          if (!rawAttempt.error) {
-            error = null;
-          }
-        }
-
-        // Jeśli nick to np. mbaloterii, a konto było zarejestrowane na mbaloterii@gmail.com
-        if (error && !cleanNick.includes("@")) {
-          const gmailAttempt = await supabase.auth.signInWithPassword({
-            email: `${cleanNick.toLowerCase()}@gmail.com`,
-            password: transformPassword(password),
-          });
-          if (!gmailAttempt.error) {
-            error = null;
-          } else {
-            const gmailRaw = await supabase.auth.signInWithPassword({
-              email: `${cleanNick.toLowerCase()}@gmail.com`,
-              password: password,
-            });
-            if (!gmailRaw.error) {
-              error = null;
-            }
-          }
-        }
-
-        if (error) {
-          throw new Error("Nieprawidłowy nick lub hasło.");
-        }
+        setMsg("Konto zostało pomyślnie utworzone!");
       }
     } catch (err) {
       setMsg(err instanceof Error ? err.message : "Coś poszło nie tak");
