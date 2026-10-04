@@ -44,8 +44,25 @@ export function AdminPanel() {
       p_field: field,
       p_delta: delta,
     });
-    if (error) toast.error(error.message);
-    else load();
+    if (error) {
+      if (error.message.includes("schema cache") || error.code === "PGRST202") {
+        toast.error(
+          "W bazie Supabase brakuje funkcji 'admin_adjust'. Uruchom skrypt SQL w Supabase SQL Editor.",
+          { duration: 8000 },
+        );
+      } else {
+        toast.error(error.message);
+      }
+    } else {
+      toast.success(
+        field === "extra_games"
+          ? `Zaktualizowano gry (${delta > 0 ? `+${delta}` : delta})`
+          : field === "lives"
+            ? `Zaktualizowano życia (${delta > 0 ? `+${delta}` : delta})`
+            : "Zaktualizowano dane gracza",
+      );
+      load();
+    }
   }
   async function giveAll(field: "extra_games" | "lives") {
     const { error } = await supabase.rpc("admin_give_all", { p_field: field, p_amount: 1 });
@@ -151,6 +168,54 @@ export function AdminPanel() {
                   onClick={() => adjust(p.user_id, "reset_cooldown", 0)}
                 >
                   ⏱ Zeruj 24h
+                </Button>
+              </div>
+
+              {/* Szybkie pakiety dla kupionych gier */}
+              <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-border/50 text-xs">
+                <span className="text-[11px] text-muted-foreground mr-1">🎮 Dodaj gry:</span>
+                <Button
+                  size="sm"
+                  variant="chip"
+                  className="h-7 px-2 text-[11px] border border-accent/40 text-accent hover:bg-accent/20"
+                  onClick={() => adjust(p.user_id, "extra_games", 1)}
+                >
+                  +1 gra (5 zł)
+                </Button>
+                <Button
+                  size="sm"
+                  variant="chip"
+                  className="h-7 px-2 text-[11px] border border-accent/40 text-accent hover:bg-accent/20"
+                  onClick={() => adjust(p.user_id, "extra_games", 5)}
+                >
+                  +5 gier (23 zł)
+                </Button>
+                <Button
+                  size="sm"
+                  variant="chip"
+                  className="h-7 px-2 text-[11px] border border-accent/40 text-accent hover:bg-accent/20"
+                  onClick={() => adjust(p.user_id, "extra_games", 10)}
+                >
+                  +10 gier (40 zł)
+                </Button>
+
+                <span className="text-[11px] text-muted-foreground mx-1">|</span>
+                <span className="text-[11px] text-muted-foreground mr-1">❤️ Życia:</span>
+                <Button
+                  size="sm"
+                  variant="chip"
+                  className="h-7 px-2 text-[11px] border border-rose-500/40 text-rose-400 hover:bg-rose-500/20"
+                  onClick={() => adjust(p.user_id, "lives", 1)}
+                >
+                  +1 życie
+                </Button>
+                <Button
+                  size="sm"
+                  variant="chip"
+                  className="h-7 px-2 text-[11px] border border-rose-500/40 text-rose-400 hover:bg-rose-500/20"
+                  onClick={() => adjust(p.user_id, "lives", 3)}
+                >
+                  +3 życia
                 </Button>
               </div>
             </div>
