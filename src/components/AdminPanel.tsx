@@ -56,6 +56,24 @@ export function AdminPanel() {
     }
   }
 
+  async function resetAllPoints() {
+    if (!window.confirm("Czy na pewno chcesz wyzerować punkty WSZYSTKIM graczom?")) return;
+    const playersWithPoints = players.filter((p) => p.points > 0);
+    if (playersWithPoints.length === 0) {
+      toast.info("Wszyscy gracze mają już 0 punktów.");
+      return;
+    }
+    for (const p of playersWithPoints) {
+      await supabase.rpc("admin_adjust", {
+        p_user: p.user_id,
+        p_field: "points",
+        p_delta: -p.points,
+      });
+    }
+    toast.success("Punkty wszystkich graczy zostały wyzerowane do 0!");
+    load();
+  }
+
   const filtered = useMemo(
     () => players.filter((p) => p.nick.toLowerCase().includes(q.trim().toLowerCase())),
     [players, q],
@@ -68,7 +86,10 @@ export function AdminPanel() {
       <section className="panel p-5 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-display text-xl">👑 Gracze ({players.length})</h2>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button variant="chipDanger" size="sm" onClick={resetAllPoints}>
+              🔄 Zeruj punkty wszystkim
+            </Button>
             <Button variant="chip" size="sm" onClick={() => giveAll("extra_games")}>
               +1 gra dla wszystkich
             </Button>
