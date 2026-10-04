@@ -121,6 +121,11 @@ export function AuthCard({ onPlayAsGuest }: { onPlayAsGuest?: () => void }) {
           }
           throw new Error("Ten nick jest już zarejestrowany. Przejdź do zakładki Logowanie.");
         }
+        if (error.message.toLowerCase().includes("signups are disabled")) {
+          throw new Error(
+            "Rejestracja jest wyłączona w bazie. Włącz opcję 'Allow new users to sign up' w Supabase (Authentication -> Providers -> Email).",
+          );
+        }
         if (
           error.message.toLowerCase().includes("rate limit") ||
           error.message.toLowerCase().includes("rate_limit")
