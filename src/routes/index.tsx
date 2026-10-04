@@ -257,6 +257,7 @@ function Index() {
             player={player || demoPlayer}
             isDemo={isGuest || !user}
             onBackToGame={() => setTab("game")}
+            onRefresh={refresh}
             backLabel={
               user ? "Wróć do gry" : isGuest ? "Wróć do gry (Demo)" : "Wróć do menu logowania"
             }
@@ -362,7 +363,15 @@ function Index() {
           <>
             <div className="flex items-center justify-between panel px-4 py-3">
               <div>
-                <div className="text-xs text-muted-foreground">Grasz jako</div>
+                <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <span>Grasz jako</span>
+                  {(player.is_vip || player.gold_snake) && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-300 border border-amber-500/40">
+                      <span>👑</span>
+                      <span>Złoty Wąż VIP</span>
+                    </span>
+                  )}
+                </div>
                 <div className="font-display text-lg">{player.nick}</div>
               </div>
               <div className="text-right">

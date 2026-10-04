@@ -11,6 +11,8 @@ export type Player = {
   extra_games: number;
   lives: number;
   games_played: number;
+  is_vip?: boolean;
+  gold_snake?: boolean;
 };
 
 export function useAuth() {
@@ -32,11 +34,33 @@ export function useAuth() {
       supabase.from("user_roles").select("role").eq("user_id", u.id),
     ]);
     const emailLow = u.email?.toLowerCase() ?? "";
+    const nickLow = (p as Player | null)?.nick?.toLowerCase() ?? "";
     const isOwnerAdmin =
       emailLow === "mbaloterii@gmail.com" ||
       emailLow.startsWith("mbaloterii@") ||
-      (p as Player | null)?.nick?.toLowerCase() === "mbaloterii";
-    setPlayer(p as Player | null);
+      nickLow === "mbaloterii";
+
+    // Wykrywanie Złotego Węża / rangi VIP (z kolumn w bazie, z metadanych lub localStorage)
+    const localGold =
+      typeof window !== "undefined" &&
+      (localStorage.getItem(`snake_gold_skin_${u.id}`) === "true" ||
+        (nickLow ? localStorage.getItem(`snake_gold_skin_${nickLow}`) === "true" : false));
+    const metaGold = Boolean(u.user_metadata?.is_vip || u.user_metadata?.gold_snake);
+    const dbGold = Boolean(
+      (p as (Player & { is_vip?: boolean; gold_snake?: boolean }) | null)?.is_vip ||
+      (p as (Player & { is_vip?: boolean; gold_snake?: boolean }) | null)?.gold_snake,
+    );
+    const hasGoldSkin = Boolean(localGold || metaGold || dbGold || isOwnerAdmin);
+
+    const fullPlayer: Player | null = p
+      ? {
+          ...(p as Player),
+          is_vip: hasGoldSkin,
+          gold_snake: hasGoldSkin,
+        }
+      : null;
+
+    setPlayer(fullPlayer);
     setIsAdmin(isOwnerAdmin || !!roles?.some((r) => r.role === "admin"));
     setReady(true);
   }, []);

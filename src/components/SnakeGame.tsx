@@ -37,6 +37,8 @@ export function SnakeGame({
   isDemo?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const playerRef = useRef(player);
+  playerRef.current = player;
   const st = useRef({
     snake: [] as P[],
     dir: { x: 1, y: 0 },
@@ -130,17 +132,44 @@ export function SnakeGame({
     if (s.food) dot(s.food, 0.3, cssVar("--accent"));
     if (s.gold) dot(s.gold, 0.42, cssVar("--gold"));
     const prim = cssVar("--primary");
+    const pCurrent = playerRef.current;
+    const isGoldSnake = Boolean(
+      pCurrent?.is_vip ||
+      pCurrent?.gold_snake ||
+      (typeof window !== "undefined" &&
+        pCurrent &&
+        (localStorage.getItem(`snake_gold_skin_${pCurrent.user_id}`) === "true" ||
+          localStorage.getItem(`snake_gold_skin_${pCurrent.nick}`) === "true")),
+    );
+
     s.snake.forEach((p, i) => {
-      ctx.fillStyle = prim;
-      ctx.globalAlpha = i === 0 ? 1 : Math.max(0.45, 1 - i * 0.03);
-      if (i === 0) {
-        ctx.shadowColor = prim;
-        ctx.shadowBlur = 16;
+      if (isGoldSnake) {
+        // Złoty Wąż: lśniące złoto z głębokim złotym blaskiem
+        ctx.fillStyle = i === 0 ? "#FFF275" : i % 2 === 0 ? "#FFD700" : "#E5A800";
+        ctx.shadowColor = "#FFB700";
+        ctx.shadowBlur = i === 0 ? 22 : 10;
+        ctx.globalAlpha = i === 0 ? 1 : Math.max(0.65, 1 - i * 0.02);
+      } else {
+        ctx.fillStyle = prim;
+        ctx.globalAlpha = i === 0 ? 1 : Math.max(0.45, 1 - i * 0.03);
+        if (i === 0) {
+          ctx.shadowColor = prim;
+          ctx.shadowBlur = 16;
+        }
       }
+
       ctx.beginPath();
       ctx.roundRect(p.x * cell + 2, p.y * cell + 2, cell - 4, cell - 4, 6);
       ctx.fill();
       ctx.shadowBlur = 0;
+
+      // Złoty wąż: korona / błysk diamentu na głowie
+      if (isGoldSnake && i === 0) {
+        ctx.fillStyle = "#FFFFFF";
+        ctx.beginPath();
+        ctx.arc(p.x * cell + cell / 2, p.y * cell + cell / 2, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
     });
     ctx.globalAlpha = 1;
   }, []);
@@ -418,6 +447,18 @@ export function SnakeGame({
       {isDemo && (
         <div className="rounded-xl border border-accent/40 bg-accent/15 px-4 py-2 text-center text-xs sm:text-sm font-semibold text-accent">
           Gra w trybie Demo — testuj mechanikę ryzyka i wypłaty!
+        </div>
+      )}
+
+      {!isDemo && (player.is_vip || player.gold_snake) && (
+        <div className="flex items-center justify-between rounded-xl bg-gradient-to-r from-amber-500/20 via-yellow-500/15 to-amber-500/20 border border-amber-500/40 px-3.5 py-2 text-xs text-amber-300 shadow-[0_0_15px_oklch(0.85_0.2_85/15%)]">
+          <span className="flex items-center gap-2 font-bold">
+            <span className="text-base">👑</span>
+            <span>Ranga VIP: Złoty Wąż aktywny!</span>
+          </span>
+          <span className="text-[11px] font-medium text-amber-200/90 hidden sm:inline">
+            Twój wąż lśni złotem na arenie ✨
+          </span>
         </div>
       )}
 

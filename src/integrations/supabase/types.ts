@@ -52,6 +52,8 @@ export type Database = {
           created_at: string;
           extra_games: number;
           games_played: number;
+          gold_snake?: boolean | null;
+          is_vip?: boolean | null;
           last_game_at: string | null;
           lives: number;
           nick: string;
@@ -63,6 +65,8 @@ export type Database = {
           created_at?: string;
           extra_games?: number;
           games_played?: number;
+          gold_snake?: boolean | null;
+          is_vip?: boolean | null;
           last_game_at?: string | null;
           lives?: number;
           nick: string;
@@ -73,6 +77,9 @@ export type Database = {
           best_score?: number;
           created_at?: string;
           extra_games?: number;
+          games_played?: number;
+          gold_snake?: boolean | null;
+          is_vip?: boolean | null;
           games_played?: number;
           last_game_at?: string | null;
           lives?: number;
@@ -112,6 +119,19 @@ export type Database = {
       admin_give_all: {
         Args: { p_amount: number; p_field: string };
         Returns: undefined;
+      };
+      buy_shop_item: {
+        Args: { p_item: string };
+        Returns: {
+          cost?: number;
+          deducted?: number;
+          extra_games?: number;
+          is_vip?: boolean;
+          item?: string;
+          lives?: number;
+          new_points?: number;
+          success: boolean;
+        };
       };
       finish_game: {
         Args: { p_score: number; p_session: string };
