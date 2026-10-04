@@ -22,6 +22,7 @@ dist-ssr
 .dev.vars
 
 # Editor directories and files
+supabase/.temp/
 .vscode/*
 !.vscode/extensions.json
 .idea
