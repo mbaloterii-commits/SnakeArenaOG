@@ -145,6 +145,7 @@ export type Database = {
         Returns: boolean;
       };
       nick_available: { Args: { p_nick: string }; Returns: boolean };
+      reset_stuck_session: { Args: Record<PropertyKey, never>; Returns: undefined };
       start_game: { Args: never; Returns: string };
       use_life: { Args: { p_session: string }; Returns: boolean };
     };

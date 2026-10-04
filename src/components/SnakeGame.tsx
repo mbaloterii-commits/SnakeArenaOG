@@ -88,6 +88,31 @@ export function SnakeGame({
   const [now, setNow] = useState(Date.now());
   const [lives, setLives] = useState(player.lives);
   const [boostSeconds, setBoostSeconds] = useState(0);
+  const [hasStuckSession, setHasStuckSession] = useState(false);
+  const [stuckSessionId, setStuckSessionId] = useState<string | null>(null);
+
+  // Wykrywanie aktywnej sesji gry po odświeżeniu strony
+  useEffect(() => {
+    if (isDemo || !player?.user_id) return;
+    supabase
+      .from("game_sessions")
+      .select("id,started_at")
+      .eq("user_id", player.user_id)
+      .is("finished_at", null)
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .then(({ data, error }) => {
+        if (!error && data && data.length > 0 && data[0]?.id) {
+          const diff = Date.now() - new Date(data[0].started_at).getTime();
+          // Jeśli sesja była rozpoczęta w ciągu ostatnich 30 minut:
+          if (diff < 30 * 60 * 1000) {
+            setHasStuckSession(true);
+            setStuckSessionId(data[0].id);
+            setStatus("Wykryto rozpoczętą sesję po odświeżeniu. Kliknij WZNÓW GRĘ!");
+          }
+        }
+      });
+  }, [player?.user_id, isDemo]);
 
   // Ustawienie limitu auto-wypłaty (0 = manualnie / bez limitu)
   const [cashOutLimit, setCashOutLimit] = useState<number>(() => {
@@ -289,6 +314,11 @@ export function SnakeGame({
         setStatus(msg);
         toast.success(msg);
         s.session = null;
+        if (typeof window !== "undefined") {
+          sessionStorage.removeItem("snake_active_session");
+        }
+        setHasStuckSession(false);
+        setStuckSessionId(null);
       } else {
         if (s.session) {
           const { error } = await supabase.rpc("finish_game", {
@@ -306,6 +336,11 @@ export function SnakeGame({
             toast.success(msg);
           }
           s.session = null;
+          if (typeof window !== "undefined") {
+            sessionStorage.removeItem("snake_active_session");
+          }
+          setHasStuckSession(false);
+          setStuckSessionId(null);
         }
       }
       onChange();
@@ -331,6 +366,11 @@ export function SnakeGame({
         toast.error(`💥 Kraksa! Straciłeś ${lostPoints} nie-wypłaconych punktów!`);
       }
       s.session = null;
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem("snake_active_session");
+      }
+      setHasStuckSession(false);
+      setStuckSessionId(null);
     } else {
       if (s.session) {
         // Zapisujemy wynik 0 pkt, ponieważ gracz się rozbił i nie wypłacił na czas!
@@ -351,6 +391,11 @@ export function SnakeGame({
           }
         }
         s.session = null;
+        if (typeof window !== "undefined") {
+          sessionStorage.removeItem("snake_active_session");
+        }
+        setHasStuckSession(false);
+        setStuckSessionId(null);
       }
     }
     onChange();
@@ -480,6 +525,66 @@ export function SnakeGame({
     s.timer = setTimeout(tick, isSuperPower ? 95 : 110);
   }, [draw, onCrashLoss, cashOut, empty, repositionObstacles]);
 
+  const resumeOrStart = useCallback(
+    (sessionId: string | null) => {
+      const s = st.current;
+      s.session = sessionId;
+      if (typeof window !== "undefined" && sessionId) {
+        sessionStorage.setItem("snake_active_session", sessionId);
+      }
+      s.lives = player.lives;
+      s.snake = [
+        { x: 9, y: 9 },
+        { x: 8, y: 9 },
+        { x: 7, y: 9 },
+      ];
+      s.dir = s.next = { x: 1, y: 0 };
+      s.score = 0;
+      s.boostUntil = 0;
+      setBoostSeconds(0);
+      s.gold = null;
+      s.food = null;
+      repositionObstacles(0);
+      s.food = empty();
+      setScore(0);
+      setStatus("Powodzenia! Zbieraj punkty i wypłać zanim się rozbijesz! 🐍");
+      setHasStuckSession(false);
+      setStuckSessionId(null);
+      s.running = true;
+      setRunning(true);
+      onChange();
+      draw();
+      tick();
+    },
+    [player.lives, empty, repositionObstacles, onChange, draw, tick],
+  );
+
+  const clearStuckSession = useCallback(async () => {
+    try {
+      const saved =
+        typeof window !== "undefined" ? sessionStorage.getItem("snake_active_session") : null;
+      if (saved) {
+        await supabase.rpc("finish_game", { p_session: saved, p_score: 0 }).catch(() => {});
+        sessionStorage.removeItem("snake_active_session");
+      }
+      if (stuckSessionId) {
+        await supabase
+          .rpc("finish_game", { p_session: stuckSessionId, p_score: 0 })
+          .catch(() => {});
+      }
+      await supabase.rpc("reset_stuck_session").catch(() => {});
+
+      setHasStuckSession(false);
+      setStuckSessionId(null);
+      toast.success("Odblokowano sesję! Możesz teraz rozpocząć nową grę.");
+      setStatus("Sesja odblokowana. Kliknij ZAGRAJ! 🐍");
+      onChange();
+    } catch {
+      setHasStuckSession(false);
+      setStuckSessionId(null);
+    }
+  }, [stuckSessionId, onChange]);
+
   async function start() {
     const s = st.current;
     if (isDemo) {
@@ -508,34 +613,53 @@ export function SnakeGame({
       return;
     }
 
-    const { data, error } = await supabase.rpc("start_game");
-    if (error) {
-      setStatus(error.message);
-      toast.error(error.message);
+    // Jeśli gracz ma aktywną sesję po odświeżeniu, wznów ją natychmiast
+    if (stuckSessionId) {
+      resumeOrStart(stuckSessionId);
       return;
     }
-    s.session = data as string;
-    s.lives = player.lives;
-    s.snake = [
-      { x: 9, y: 9 },
-      { x: 8, y: 9 },
-      { x: 7, y: 9 },
-    ];
-    s.dir = s.next = { x: 1, y: 0 };
-    s.score = 0;
-    s.boostUntil = 0;
-    setBoostSeconds(0);
-    s.gold = null;
-    s.food = null;
-    repositionObstacles(0);
-    s.food = empty();
-    setScore(0);
-    setStatus("Powodzenia! Zbieraj punkty i wypłać zanim się rozbijesz! 🐍");
-    s.running = true;
-    setRunning(true);
-    onChange();
-    draw();
-    tick();
+
+    const { data, error } = await supabase.rpc("start_game");
+    let sessionToken = data as string | null;
+
+    if (error) {
+      const isStuckErr =
+        error.message.includes("rozpoczętą") ||
+        error.message.includes("już") ||
+        error.code === "P0001";
+
+      if (isStuckErr) {
+        // Pobierz id otwartej sesji z bazy danych
+        const { data: openSessions } = await supabase
+          .from("game_sessions")
+          .select("id")
+          .eq("user_id", player.user_id)
+          .is("finished_at", null)
+          .order("started_at", { ascending: false })
+          .limit(1);
+
+        const openId = openSessions?.[0]?.id;
+        if (openId) {
+          sessionToken = openId;
+          toast.info("Wznowiono rozpoczętą grę!");
+        } else {
+          // Jeśli baza zgłasza błąd, spróbujmy zamknąć poprzednie sesje i powtórzyć
+          await supabase.rpc("reset_stuck_session").catch(() => {});
+          const retry = await supabase.rpc("start_game");
+          if (!retry.error && retry.data) {
+            sessionToken = retry.data as string;
+          }
+        }
+      }
+
+      if (!sessionToken) {
+        setStatus(error.message);
+        toast.error(error.message);
+        return;
+      }
+    }
+
+    resumeOrStart(sessionToken);
   }
 
   const setDir = (x: number, y: number) => {
@@ -578,7 +702,9 @@ export function SnakeGame({
   const touch = useRef<{ x: number; y: number } | null>(null);
   const left = isDemo ? 0 : msLeft(player.last_game_at);
   void now;
-  const canPlay = isDemo ? !running : !running && (left === 0 || player.extra_games > 0);
+  const canPlay = isDemo
+    ? !running
+    : !running && (hasStuckSession || left === 0 || player.extra_games > 0);
 
   return (
     <section className="panel p-4 sm:p-5 space-y-4">
@@ -785,22 +911,53 @@ export function SnakeGame({
           </div>
         </div>
       ) : (
-        <Button
-          variant="hero"
-          className="w-full h-14 font-display text-base"
-          disabled={!canPlay}
-          onClick={start}
-        >
-          {isDemo
-            ? score > 0
-              ? "ZAGRAJ PONOWNIE (DEMO)"
-              : "ZAGRAJ W DEMO (BEZ LIMITU)"
-            : left === 0
-              ? "ZAGRAJ"
-              : player.extra_games > 0
-                ? `ZAGRAJ (dodatkowa gra · ${player.extra_games})`
-                : `KOLEJNA GRA ZA ${fmt(left)}`}
-        </Button>
+        <div className="space-y-2">
+          {hasStuckSession && (
+            <div className="rounded-xl border border-amber-500/50 bg-amber-500/15 p-3 space-y-2 text-center animate-in fade-in">
+              <div className="text-xs text-amber-300 font-semibold flex items-center justify-center gap-1.5">
+                <span>⚠️</span>
+                <span>Wykryto niezakończoną grę (np. po odświeżeniu strony)</span>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="flex-1 text-xs font-bold bg-amber-500 text-amber-950 hover:bg-amber-400"
+                  onClick={start}
+                >
+                  ▶️ Wznów tę grę
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 text-xs border-amber-500/40 text-amber-300 hover:bg-amber-500/20"
+                  onClick={clearStuckSession}
+                >
+                  🔄 Zresetuj i zacznij od nowa
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <Button
+            variant="hero"
+            className="w-full h-14 font-display text-base"
+            disabled={!canPlay}
+            onClick={start}
+          >
+            {isDemo
+              ? score > 0
+                ? "ZAGRAJ PONOWNIE (DEMO)"
+                : "ZAGRAJ W DEMO (BEZ LIMITU)"
+              : hasStuckSession
+                ? "▶️ WZNÓW ROZPOCZĘTĄ GRĘ"
+                : left === 0
+                  ? "ZAGRAJ"
+                  : player.extra_games > 0
+                    ? `ZAGRAJ (dodatkowa gra · ${player.extra_games})`
+                    : `KOLEJNA GRA ZA ${fmt(left)}`}
+          </Button>
+        </div>
       )}
 
       {/* Strzałki do grania (D-pad) — Dostępne w trybie Demo ORAZ po zalogowaniu */}
